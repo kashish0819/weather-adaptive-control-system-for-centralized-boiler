@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Smart Boiler Pro</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+body{
+    margin:0;
+    font-family:'Segoe UI',sans-serif;
+    background:linear-gradient(135deg,#0f172a,#1e293b);
+    color:white;
+}
+
+/* LOGIN PAGE */
+.login-page{
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
+}
+
+.login-box{
+    background:#1e293b;
+    padding:40px;
+    width:350px;
+    border-radius:20px;
+    box-shadow:0 20px 40px rgba(0,0,0,0.6);
+    text-align:center;
+}
+
+.login-box h2{
+    color:#38bdf8;
+}
+
+input{
+    width:100%;
+    padding:12px;
+    margin:10px 0;
+    border:none;
+    border-radius:10px;
+}
+
+button{
+    width:100%;
+    padding:12px;
+    margin-top:10px;
+    border:none;
+    border-radius:10px;
+    background:#38bdf8;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+.link-btn{
+    background:none;
+    color:#94a3b8;
+}
+
+.message{
+    margin-top:10px;
+    font-size:14px;
+}
+
+.error{ color:#ef4444; }
+.success{ color:#10b981; }
+
+/* APP LAYOUT */
+.app{ display:none; }
+
+.sidebar{
+    width:230px;
+    background:#111827;
+    padding:20px;
+    height:100vh;
+    position:fixed;
+}
+
+.sidebar h2{ color:#38bdf8; }
+
+.sidebar button{
+    display:block;
+    width:100%;
+    background:none;
+    border:none;
+    color:#94a3b8;
+    padding:12px;
+    text-align:left;
+    cursor:pointer;
+}
+
+.sidebar button:hover{
+    background:#1e293b;
+    color:white;
+}
+
+.main{
+    margin-left:250px;
+    padding:30px;
+}
+
+.page{ display:none; }
+.active{ display:block; }
+
+.cards{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:20px;
+}
+
+.card{
+    background:#1e293b;
+    padding:20px;
+    border-radius:15px;
+}
+
+.value{
+    font-size:22px;
+    margin-top:10px;
+}
+
+.status-on{ color:#10b981; }
+.status-off{ color:#ef4444; }
+
+.alert-box{
+    background:#7f1d1d;
+    padding:15px;
+    margin-top:15px;
+    border-radius:10px;
+    display:none;
+}
+</style>
+</head>
+
+<body>
+
+<!-- LOGIN -->
+<div class="login-page" id="loginPage">
+<div class="login-box">
+<h2>🔥 Smart Boiler</h2>
+
+<input type="text" id="username" placeholder="Username">
+<input type="password" id="password" placeholder="Password">
+
+<button onclick="handleAuth()" id="mainBtn">Login</button>
+<button class="link-btn" onclick="toggleMode()" id="switchBtn">Create Account</button>
+
+<div id="authMessage" class="message"></div>
+</div>
+</div>
+
+<!-- APP -->
+<div class="app" id="app">
+
+<div class="sidebar">
+<h2>🔥 Smart Boiler</h2>
+<button onclick="showPage('dashboard')">📊 Dashboard</button>
+<button onclick="showPage('analytics')">📈 Analytics</button>
+<button onclick="showPage('settings')">⚙ Settings</button>
+<button onclick="logout()">🚪 Logout</button>
+</div>
+
+<div class="main">
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="page active">
+<h1>Dashboard</h1>
+<div class="cards">
+<div class="card"><h4>🌤 Weather</h4><div id="weather" class="value">--</div></div>
+<div class="card"><h4>💧 Humidity</h4><div id="humidity" class="value">--</div></div>
+<div class="card"><h4>🌡 Water Temp</h4><div id="water" class="value">--</div></div>
+<div class="card"><h4>🚿 Flow</h4><div id="flow" class="value">--</div></div>
+<div class="card"><h4>💦 Total Used</h4><div id="total" class="value">--</div></div>
+<div class="card"><h4>🔥 Status</h4><div id="status" class="value">--</div></div>
+</div>
+
+<div class="alert-box" id="alertBox"></div>
+</div>
+
+<!-- ANALYTICS -->
+<div id="analytics" class="page">
+<h1>Analytics</h1>
+<canvas id="chart"></canvas>
+</div>
+
+<!-- SETTINGS -->
+<div id="settings" class="page">
+<h1>Settings</h1>
+<label>Flow Alert Limit</label>
+<input type="number" id="flowLimit">
+<label>Temperature Alert Limit</label>
+<input type="number" id="tempLimit">
+<button onclick="saveSettings()">Save Settings</button>
+</div>
+
+</div>
+</div>
+
+<script>
+
+/* AUTH SYSTEM */
+let isLogin=true;
+
+function toggleMode(){
+    isLogin=!isLogin;
+    document.getElementById("mainBtn").innerText=isLogin?"Login":"Create Account";
+    document.getElementById("switchBtn").innerText=isLogin?"Create Account":"Back to Login";
+    document.getElementById("authMessage").innerHTML="";
+}
+
+function handleAuth(){
+    const u=username.value.trim();
+    const p=password.value.trim();
+    const msg=document.getElementById("authMessage");
+
+    if(!u||!p){
+        msg.innerHTML="<span class='error'>Fill all fields</span>";
+        return;
+    }
+
+    if(isLogin){
+        const saved=localStorage.getItem("user_"+u);
+        if(saved===null){
+            msg.innerHTML="<span class='error'>User not found</span>";
+            return;
+        }
+        if(saved!==p){
+            msg.innerHTML="<span class='error'>Wrong password</span>";
+            return;
+        }
+        localStorage.setItem("loggedInUser",u);
+        startApp();
+    }else{
+        if(localStorage.getItem("user_"+u)){
+            msg.innerHTML="<span class='error'>User exists</span>";
+            return;
+        }
+        localStorage.setItem("user_"+u,p);
+        msg.innerHTML="<span class='success'>Account created! Login now.</span>";
+        toggleMode();
+    }
+}
+
+function logout(){
+    localStorage.removeItem("loggedInUser");
+    location.reload();
+}
+
+function startApp(){
+    loginPage.style.display="none";
+    app.style.display="block";
+}
+
+if(localStorage.getItem("loggedInUser")){
+    startApp();
+}
+
+/* PAGE SWITCH */
+function showPage(id){
+    document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
+    document.getElementById(id).classList.add("active");
+}
+
+/* SETTINGS */
+flowLimit.value=localStorage.getItem("flowLimit")||5;
+tempLimit.value=localStorage.getItem("tempLimit")||70;
+
+function saveSettings(){
+    localStorage.setItem("flowLimit",flowLimit.value);
+    localStorage.setItem("tempLimit",tempLimit.value);
+    alert("Settings Saved!");
+}
+
+/* CHART */
+let labels=[], tempData=[], flowData=[];
+const chart=new Chart(document.getElementById("chart"),{
+type:"line",
+data:{labels:labels,datasets:[
+{label:"Temp",data:tempData,borderColor:"#38bdf8"},
+{label:"Flow",data:flowData,borderColor:"#10b981"}
+]}
+});
+
+/* FETCH DATA */
+function loadData(){
+fetch("/data")
+.then(res=>res.json())
+.then(data=>{
+
+weather.innerText=data.weather+" °C";
+humidity.innerText=data.humidity+" %";
+water.innerText=data.water+" °C";
+flow.innerText=data.flow+" L/min";
+total.innerText=data.total+" L";
+
+status.innerText=data.status;
+status.className="value "+(data.status==="ON"?"status-on":"status-off");
+
+labels.push(new Date().toLocaleTimeString());
+tempData.push(data.water);
+flowData.push(data.flow);
+if(labels.length>20){labels.shift();tempData.shift();flowData.shift();}
+chart.update();
+
+let alertBox=document.getElementById("alertBox");
+if(data.flow>flowLimit.value){
+alertBox.style.display="block";
+alertBox.innerText="⚠ High Flow Alert!";
+}
+else if(data.water>tempLimit.value){
+alertBox.style.display="block";
+alertBox.innerText="🔥 High Temperature Alert!";
+}
+else{
+alertBox.style.display="none";
+}
+
+});
+}
+
+setInterval(loadData,3000);
+loadData();
+
+</script>
+</body>
+</html>
+
+
+
